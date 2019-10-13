@@ -1,5 +1,6 @@
 # Aramok II Compiler
 
+![alt text](https://raw.githubusercontent.com/aramoki/Aramok-II-Compiler/master/screenshot.PNG)
 
 
 ***

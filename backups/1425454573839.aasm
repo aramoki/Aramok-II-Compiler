@@ -1,0 +1,648 @@
+;;BACKUP 	:1425454573839.aasm
+Date:	Wed Mar 04 10:05:03 GST 2015
+;AramokASM Sencer Ozturk
+;02.03.2015
+
+;notes
+;interrupt 01.d 3 cycles sends 
+.data
+
+commandlist	byte 	"LIST" ,254.d
+			"RESET" , 254.d 
+			"NAME" , 254.d
+			"PACMAN" , 254.d
+			"CRAZY" , 254.d
+			"ZINTERNET" , 254.d 
+			"BUZZER" ,254.d
+			"ABOUT" , 255.d  
+
+logo		byte 	178.d,178.d,178.d,0.d,178.d,178.d,0.d,0.d,178.d,0.d,0.d , 254.d
+			178.d,0.d ,178.d,0.d,178.d,0.d,178.d,0.d,178.d,0.d,178.d, 254.d
+			178.d,178.d,178.d,0.d,178.d,178.d,0.d,0.d,178.d,178.d,0.d,254.d
+			178.d,0.d ,178.d,0.d,178.d,0.d,178.d,0.d,178.d,0.d,178.d, 255.d
+	
+computer 	byte	"ARK II 8bit processor" ,255.d 
+nameofaramok 	byte 	"Sencer Ozturk",255.d 
+school 		byte 	"Marmara University",255.d
+department 	byte 	"Electrical Electronics ",254.d,"Engineering",255.d
+anykey 		byte 	"Press space to start...",255.d
+enteryourname 	byte 	"Enter Your name",255.d
+errorstring	byte	"ERROR: There is ",254.d,"no such command" , 255.d  
+numberofcommand 	byte 	0.d 
+
+
+
+welcomeuser 	byte	"Welcome" ,0.d 
+username		byte 	"-------------------------------------------------",255.d
+prompt 		byte 	"\command:\",255.d 
+enteredcommand	byte 	"-------------------------------------------------",255.d 
+
+
+
+.code
+	 nop 
+	 nop 
+	 jmp mainprogram ; goes to main program 
+;---------------------------------------------------------------------------------------------
+writescreen:
+	;;-------
+	;; METHOD WRİTESCREEN
+	;; USES GHX , AND END OF LİNE İS EMPTY CHAR  [cx  : xpos dx :  ypos]
+	;;-------
+	nop
+	mov ex,cx
+proceeedchar:
+	nop
+	mov ax , ptr ghx 	; get pointet char to ax
+	out ax		; out char
+	out bx		; out color
+	out cx		; out xpos
+	out dx		; out ypos
+
+	inc cx 		; caret
+	inc gx		; point next char
+	adz hx 		; adds carry to hx
+
+	cmp ax , 254.d
+	jnz  :endoflinecontrol
+		
+		inc dx	; line feed
+		mov cx , ex	; carriage return
+		jmp :proceeedchar
+	endoflinecontrol:
+	nop
+	int 2.d		; display screen 
+	cmp ax , 255.d	; if end of line break
+	jnz :proceeedchar
+	dec cx 
+
+	ret 		;return the program
+
+
+;---------------------------------------------------------------------------------------------
+clearscreen:
+
+	;;-------
+	;; METHOD CLEARSCREEN
+	;; USES NO PARAMETER
+	;;-------	
+	nop 
+	mov cx , 0.d
+	mov dx , 0.d
+	mov gx , 39.d
+	mov hx , 30.d
+	mov ax , 0.d
+
+fillscreen:
+	;;-------
+	;; METHOD fillscreen
+	;; USES cx:xpos_start dx:ypos_start gx:xpos_end hx:ypos_end ax:fill char
+	;;-------
+	nop 
+	out bx 
+	mov ex , cx
+	mov fx , dx
+clearonebyone:
+	nop
+	; set char null
+	out ax		; set clear char
+	out cx		; go x
+	out dx		; go y
+	int 2.d		; display screen
+	inc cx
+
+	cmp cx , gx
+	jnz :clearonebyone
+	mov cx , ex
+	inc dx
+	cmp dx , hx
+	jnz :clearonebyone
+
+	ret
+;---------------------------------------------------------------------------------------------
+keylistener:
+	nop 
+	;;-------
+	;; METHOD WRİTESCREEN
+	;; USES AX:pointer BX:color CX:xpos DX:ypos 
+	;; also uses to write ex fx pointer
+	;; also uses gx as new line starting point
+	;;-------
+	
+	cmp cx , 39.d
+	jnz :weareonthisline
+	mov cx , 0.d 
+	inc dx
+	
+	
+weareonthisline:
+	nop 
+	mov ax , 95.d 
+	out ax
+	out cx
+	out dx 
+	int 2.d
+
+
+	int 1.d		; interrupt  wait for keyboard
+	nop
+	in ax		; input keycode to ax
+	in ptr efx	;; ex low address fx high address 
+	out ax		; out char
+	out bx		; out color
+	out cx		; out xpos
+	out dx 		; out ypos 
+	int 2.d 		; show on screen
+
+	inc cx		; increment caret
+	inc ex 		; increment address 
+	adz fx 
+
+	cmp ax , 08.h 	; compare with backspace
+	jz :backspaceproceed
+	cmp ax , 0d.h	; if enter key pressed
+	jnz :keylistener	; exit from listener
+	mov ax , 255.d
+	out ax 
+	int 2.d 
+	dec ex
+	mov ptr efx , ax  ; because mov doesnt work i didnt figure it out yet 
+
+	ret 
+backspaceproceed: 
+	nop
+	mov ax , 0.d
+	dec cx
+	out cx
+	out ax
+	int 2.d 
+	dec cx 
+	sub ex , 2.d  
+	cmp cx , ff.h
+	jnz :keylistener
+	dec dx 
+	mov cx , 38.d 
+	jmp :keylistener
+;---------------------------------------------------------------------------------------------
+drawbox:
+	;;-------
+	;; METHOD DRAWBOX
+	;; USES GHX , AND END OF LİNE İS EMPTY CHAR  
+	;;[cx  : xpos dx :  ypos gx : xlength hx : ylength]
+	;;-------
+	nop
+	out bx		;set color 
+	
+	mov ex , cx	;store cx
+	mov fx , dx 	;store dx
+
+	;; sol ust kose 
+	mov ax , 218.d    
+	out ax 		; set icon
+	out cx		; go x
+	out dx		; go y
+	int 2.d 
+	;; sag ust kose 
+	mov ax , 191.d
+	mov cx , gx
+	out ax
+	out cx
+	int 2.d
+	;; sag alt kose
+	mov ax ,217.d
+	mov dx , hx
+	out ax
+	out dx
+	int 2.d
+	;; sol alt kose
+	mov ax , 192.d
+	mov cx , ex
+	out ax
+	out cx
+	int 2.d
+
+	mov cx , ex 	;recover x start
+	mov dx , fx	;recover y start
+	mov ax , 196.d	; set vertical line
+	out ax
+	inc cx
+
+verticallines:
+	nop
+	out cx 
+	mov dx , fx	
+	out cx
+	out dx		; go y
+	int 2.d	
+	mov dx , hx
+	out cx
+	out dx	
+	int 2.d		;display
+
+	inc cx
+	cmp cx ,gx
+	jnz :verticallines 
+	
+	mov ax , 179.d
+	out ax 
+	dec dx
+horizontallines:
+	nop
+	out dx 
+	mov cx , gx	
+	out cx
+	out dx
+	int 2.d		; display
+	mov cx , ex
+	out cx
+	out dx 
+	int 2.d
+
+	dec dx
+	cmp dx , fx
+	jnz :horizontallines
+
+	;now default values 
+	;here dx is fx 
+	;cx is ex
+	;gx is xend
+	;hx is yend
+	inc cx
+	inc dx
+
+
+
+	mov ax , 0.d
+	jmp :fillscreen
+	ret 		;return the program
+
+;---------------------------------------------------------------------------------------------
+cmdcheck:
+	nop 
+	;;-------
+	;; METHOD COMMAND CHECK
+	;; 
+	;; 
+	;;-------
+	mov cx , 0.d 		;error command 
+	mov ax , 0.d 		;clear ax 
+	mov ex , offset enteredcommand#
+	mov fx , offset #enteredcommand
+
+	mov gx , offset commandlist#
+	mov hx , offset #commandlist 
+
+	mov bx , 11111111.b
+	mov dx , 4.d
+	out bx
+	out dx 
+
+stringequality:
+	nop
+	nop
+
+
+	mov ax , ptr ghx 		;ax to list head
+	mov bx , ptr efx		;bx to command 
+	cmp ax , 255.d 
+	jz :matchresults
+
+
+	cmp ax , bx 
+	jz :charsareequal
+	inc gx 
+	adz hx 
+	
+	; they not equal check for first char in command 
+	mov ex , offset enteredcommand#
+	mov fx , offset #enteredcommand
+
+	mov ax , ptr ghx 		; ax to list head
+	cmp ax , 254.d 
+	jnz :stringequality
+	nop 
+	inc cx			; locate command
+	jmp :stringequality
+
+charsareequal: 
+	nop 
+	nop
+	inc gx	
+	inc hx
+	inc ex 			;command next char
+	adz fx 
+
+	mov bx , ptr  efx		;bx to command 
+	cmp bx , 0d.h 	;if command last char is enter then go to command
+	jz :stringmatcherror
+	jmp :stringequality
+
+
+stringmatcherror:
+	mov cx , ff.h 
+matchresults:
+
+	nop
+	nop
+	inc cx
+	mov ax , offset numberofcommand#
+	mov bx , offset #numberofcommand
+	mov ptr abx , cx
+	;jmp nomatchfounded
+
+	ret 
+
+
+;##############################################################
+;;mains-----------------------------------------------------------------------------------
+mainprogram:
+
+	;#####FIRST SCREEN######						#####
+	nop
+	nop
+	nop
+	nop
+	nop 
+
+	call :clearscreen 	
+	
+	mov cx , 6.d
+	mov dx , 0.d
+	mov gx , 32.d
+	mov hx , 10.d
+	mov bx , 00001100.b
+	call :drawbox	
+
+	
+	mov cx , 6.d
+	mov dx , 11.d
+	mov gx , 32.d
+	mov hx , 16.d 
+	mov bx , 10101010.b
+	call :drawbox	
+
+	mov bx , ff.h
+	mov cx, 9.d
+	mov dx ,7.d
+	mov gx , offset computer#	
+	mov hx , offset #computer
+	call :writescreen 	;call screen write procedure
+
+	mov bx , ee.h
+	mov cx, 12.d
+	mov dx ,8.d
+	mov gx , offset nameofaramok#	
+	mov hx , offset #nameofaramok
+	call :writescreen 	;call screen write procedure
+
+	mov bx , 00111101.b
+	mov cx, 10.d
+	mov dx ,12.d
+	mov gx , offset school#	
+	mov hx , offset #school
+	call :writescreen 	;call screen write procedure
+
+	mov bx , 10110101.b
+	mov cx, 8.d
+	mov dx ,13.d
+	mov gx , offset department#
+	mov hx , offset #department
+	call :writescreen 	;call screen write procedure
+
+	mov bx , 10110101.b
+	mov cx, 8.d
+	mov dx ,18.d
+	mov gx , offset anykey#
+	mov hx , offset #anykey
+	call :writescreen 	;call screen write procedure
+discologo:	
+	nop
+	nop
+	mov cx, 13.d
+	mov dx ,2.d
+	mov gx , offset logo#	;mustbe offset name
+	mov hx , offset #logo
+	call :writescreen	;call screen write procedure
+	
+	in ax
+	inc bx		; increment color
+	or bx , 11001100.b	; change on blue
+	cmp ax , 20.h
+jnz :discologo
+
+
+	;#####SECOND SCREEN######						#####
+	
+	int 1.d
+	int 1.d
+	int 1.d
+namescreen:
+	nop
+ 
+	mov bx , 11110011.b  
+	mov cx , 0.d
+	mov dx , 0.d
+	mov gx , 39.d
+	mov hx , 30.d
+	mov ax , 176.d
+	call :fillscreen
+
+	mov cx , 9.d
+	mov dx , 11.d
+	mov gx , 30.d
+	mov hx , 18.d
+	mov bx , 11110000.b
+	call :drawbox
+	mov bx ,ff.h
+	mov cx ,12.d
+	mov dx ,14.d 
+	mov gx , offset enteryourname#	
+	mov hx , offset #enteryourname
+	call :writescreen 	;call screen write procedure
+
+
+	mov cx , 12.d
+	mov dx , 16.d
+	mov bx , 11100011.b 
+	mov ex , offset username#
+	mov fx , offset #username
+	call :keylistener
+	nop
+
+
+;	mov ax , 15.d 
+;	mov gx , offset username#	
+;	mov hx , offset #username    
+
+	;#####COMMAND SCREEN######						#####
+
+
+betterthandos:
+	nop 
+	call :clearscreen 
+
+	mov bx ,00111111.b
+	mov cx ,0.d
+	mov dx ,0.d
+	mov gx , offset welcomeuser#	
+	mov hx , offset #welcomeuser
+	call :writescreen 	;call screen write procedure 
+
+
+
+	mov bx ,11011111.b
+	mov cx ,0.d
+	mov dx ,1.d
+	mov gx , offset prompt#	
+	mov hx , offset #prompt
+	call :writescreen 	;call screen write procedure 
+
+
+	mov bx , 11111111.b 
+	mov ex , offset enteredcommand#
+	mov fx , offset #enteredcommand
+	call :keylistener 	;get command 
+
+
+
+	nop
+	nop
+	nop 
+	call :cmdcheck
+	
+	mov ax , offset numberofcommand#
+	mov bx , offset #numberofcommand
+	mov cx , ptr abx 
+	cmp cx , 1.d
+	jz :listcommands
+	cmp cx , 2.d
+	jz :mainprogram
+	cmp cx , 3.d 
+	jz :namescreen
+	cmp cx , 6.d
+	jz :connectinternet
+	
+
+
+
+	jmp :connectinternet
+	
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+jmp :betterthandos 
+
+
+
+
+
+
+
+
+
+
+;------------TABS--------------
+errortab:
+	mov bx , 11000000.b  
+	mov cx , 0.d
+	mov dx , 0.d
+	mov gx , 39.d
+	mov hx , 30.d
+	mov ax , 176.d
+	call :fillscreen
+
+	mov cx , 9.d
+	mov dx , 11.d
+	mov gx , 30.d
+	mov hx , 18.d
+	mov bx , 11000001.b
+	call :drawbox
+	mov bx ,ff.h
+	mov cx ,12.d
+	mov dx ,14.d 
+	mov gx , offset errorstring#	
+	mov hx , offset #errorstring
+	call :writescreen 
+	int 1.d
+	int 1.d
+	int 1.d
+jmp :betterthandos ;like return 
+
+
+
+
+
+listcommands:
+
+
+	mov cx , 8.d
+	mov dx , 3.d
+	mov gx , 37.d
+	mov hx , 25.d 
+	rnd bx
+	call :drawbox	
+
+	rnd bx 
+	mov cx ,10.d
+	mov dx ,5.d 
+	mov gx , offset commandlist#	
+	mov hx , offset #commandlist
+	call :writescreen 
+	int 1.d
+	int 1.d
+	int 1.d
+ 
+
+jmp :betterthandos ;like return 
+
+
+connectinternet:
+
+
+
+	inc cx
+	inc dx
+	mov gx ,3.d
+	mov hx ,3.d 
+	and cx , 00011111.b
+	and dx , 00011111.b
+
+	
+	rnd bx
+	call :drawbox	
+
+	in ax
+	cmp ax , 20.h
+	jnz :connectinternet
+
+
+jmp :betterthandos
+ 
+
+
+
+
+
+
+
+
+
+
